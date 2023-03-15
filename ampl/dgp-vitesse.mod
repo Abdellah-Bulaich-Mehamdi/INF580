@@ -24,5 +24,5 @@ minimize f: sum{(t, u, v) in E: u < v} sum{l in K} (x[t, u, l] - x[t, v, l])^2;
 # DEFINE THE CONSTRAINTS
 s.t. dist{(t, u, v) in E: u < v}: sum{l in K} (x[t, u, l] - x[t, v, l])^2  >= d[t, u, v]^2;
 s.t. ones{t in T, l in K}       : sum{u in S}  x[t, u, l]== 0;
-s.t. vitu{t in P, u in S}       : sum{l in K} (x[t, u, l] - x[t+1, u, l])^2  <= vit[t, u] +eps;
-s.t. vitl{t in P, u in S}       : sum{l in K} (x[t, u, l] - x[t+1, u, l])^2  >= vit[t, u] -eps;
+s.t. vitu{t in P, u in S}       : sum{l in K} (x[t, u, l] - x[t+1, u, l])^2  <= vit[t, u]^2 +eps;
+s.t. vitl{t in P, u in S}       : sum{l in K} (x[t, u, l] - x[t+1, u, l])^2  >= vit[t, u]^2 -eps;
