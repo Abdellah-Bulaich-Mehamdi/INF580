@@ -1,0 +1,18 @@
+# RESET THE AMPL ENVIRONMENT 
+reset;
+
+# INCLUDE THE MODEL
+model dgp.mod
+
+# INCLUDE THE DATA
+data dgp-python.dat
+
+# DEFINE THE SOLVER TO USE
+option solver baron;
+option stoptime 10;
+
+# SOLVE THE PROBLEM
+solve;
+
+# DISPLAY THE NEXT VARIABLES
+display x,f;
