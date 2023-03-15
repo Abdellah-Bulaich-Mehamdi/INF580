@@ -44,23 +44,39 @@ def optim_kdm(D, param):
     prob = cp.Problem(obj,constraint)
 
     try:
-        prob.solve(solver=cp.SCS,verbose=True,normalize = True)
+        prob.solve(solver=cp.SCS, verbose=True,normalize = True, max_iters=1000)
     except Exception as message:
         print(message)
         
     return G
 
 
-def reconstruction(G, Y, param):
+def reconstruction_kedm(G, Y, param):
     Gproj = annexe.rankProj(G, param)
+    print(np.linalg.norm(np.array(G)-np.array(Gproj)))
     X= annexe.gramtoX(Gproj, param)
     print(X.shape)
     Xaligned=annexe.aligned(Y)
     Xfin=[]
     for i_t, t in enumerate(param.time_list()):
-        R=annexe.rotation(X[i_t], Xaligned[i_t, :param.anchor])
-        Xfin.append(np.dot(R, X[i_t].T).T)
+        R=annexe.rotation(X[i_t], Xaligned[i_t, :, :param.anchor])
+        Xfin.append(np.dot(R, X[i_t]))
+
+    errorX = np.linalg.norm(Xaligned-Xfin) / np.linalg.norm(Xaligned)
     
+    return X, Xaligned, np.array(Xfin), errorX
+
+def reconstruction_basis(G, Y, param):
+    Gproj = annexe.rankProj(G, param)
+    print(np.linalg.norm(np.array(G)-np.array(Gproj)))
+    X= annexe.gramtoXbasis(Gproj, param)
+    print(X.shape)
+    Xaligned=annexe.aligned(Y)
+    Xfin=[]
+    for i_t, t in enumerate(param.time_list()):
+        R=annexe.rotation(X[i_t], Xaligned[i_t, :, :param.anchor])
+        Xfin.append(np.dot(R, X[i_t]))
+
     errorX = np.linalg.norm(Xaligned-Xfin) / np.linalg.norm(Xaligned)
     
     return X, Xaligned, np.array(Xfin), errorX

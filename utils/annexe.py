@@ -9,15 +9,15 @@ def generate_A(param):
     P = param.P
     mode=param.mode
     if mode=='polynomial':
-        A=np.random.randn(P,N, d)
+        A=np.random.randn(P,d, N)
     elif mode == 'bandlimited':
         A=[]
         j = (-1) ** (1/2)
         for p in range(P):
-            Ar = np.random.randn(N,d)
-            Aq = np.random.randn(N,d)
+            Ar = np.random.randn(d, N)
+            Aq = np.random.randn(d, N)
             A.append(Ar+j*Aq)
-        A.append(np.random.randn(N,d))
+        A.append(np.random.randn(d, N))
         for p in range(P):
             A.append(np.conj(A[P-p-1]))
         A=np.array(A)
@@ -30,16 +30,16 @@ def generate_trajectory(param, A):
     P = param.P
     mode=param.mode
     omega=param.omega
-    Nt= param.Nt()
+    Nt= param.Nt
     j = (-1) ** (1/2)
-    X = np.zeros((Nt,N,d))+0*j
+    X = np.zeros((Nt,d, N))+0*j
     if mode =='polynomial':
         for i,t in enumerate(param.time_list()):
             for p in range(P):
                 X[i] += t**p * A[p]
     elif mode == 'bandlimited':
         for i,t in enumerate(param.time_list()):
-            for p in range(P+1):
+            for p in range(P):
                 ci = np.exp(j*p*omega*t)
                 X[i] += ci*A[p+P]+np.conj(ci)*A[P-p]
         X -= A[P]
@@ -47,7 +47,7 @@ def generate_trajectory(param, A):
     return X
 
 def gram_matrix(X):
-    return np.dot(X, X.T)
+    return np.dot(X.T, X)
 
 def matrix_distance(G):
     dG = np.diag(G)[:,None]
@@ -55,13 +55,16 @@ def matrix_distance(G):
     return D
 
 def distance_trajectory(X):
-    Nt, N, d = X.shape
+    Nt, d, N= X.shape
     G = np.zeros((Nt, N, N))
     D = np.zeros((Nt, N, N))
     for i in range(Nt):
         G[i]= gram_matrix(X[i])
         D[i] = matrix_distance(G[i])
     return D
+
+def add_noise(D, param):
+    return D+ param.std*np.random.randn(param.Nt, param.N, param.N)
 
 def W(param, t):
     #Renvoie les w_k à l'instant t
@@ -70,7 +73,7 @@ def W(param, t):
 
     M = np.zeros((K,K))
     T = np.zeros((K,1))
-    time= param.time_list()
+    time= param.optim_time_list()
     for i in range(K):
         M[i,:] = time**i
         T[i,0] = t**i
@@ -91,27 +94,21 @@ def rankProj(G,param):
     On garde que les d premières valeurs propres'''
     N = param.N
     d = param.d
-    K = param.K()
+    K = G.shape[0]
     Gproj = [None for k in range(K)]
-    try:
-        for k in range(K):
-            [U,S,V] = np.linalg.svd(G[k].value,full_matrices=True)
-            S[d:N] = 0
-            Gproj[k] = np.matmul(np.matmul(U,np.diag(S)),V)
-    except:
-        for k in range(K):
-            [U,S,V] = np.linalg.svd(G[k],full_matrices=True)
-            S[d:N] = 0
-            Gproj[k] = np.matmul(np.matmul(U,np.diag(S)),V)
+    for k in range(K):
+        [U,S,V] = np.linalg.svd(G[k],full_matrices=True)
+        S[d:N] = 0
+        Gproj[k] = np.matmul(np.matmul(U,np.diag(S)),V)
     return Gproj
 
 def rotation(X,Y):
     '''
     Return the rotation matrix with Y anchor points'''
-    M =Y.shape[0]
-    XY = np.dot(Y.T, X[:M])
+    M =Y.shape[1]
+    XY = np.dot(X[:, :M], Y.T)
     U,_,V = np.linalg.svd(XY,full_matrices = True)  ## XJY' = UV' = R
-    R = np.dot(U,V)
+    R = np.dot(U,V).T
     return R
 
 def gramtoX(G,param):
@@ -123,15 +120,23 @@ def gramtoX(G,param):
         [U,S,V] = np.linalg.svd(Gt,full_matrices=True)
         S = S ** (1/2)
         S = S[0:param.d]
-        X.append(np.matmul(np.diag(S),V[0:param.d]).T)
+        X.append(np.matmul(np.diag(S),V[0:param.d]))
+    return np.array(X)
+
+def gramtoXbasis(G,param):
+    X=[]
+    for i_t,t in enumerate(param.time_list()):
+        [U,S,V] = np.linalg.svd(G[i_t],full_matrices=True)
+        S = S ** (1/2)
+        S = S[0:param.d]
+        X.append(np.matmul(np.diag(S),V[0:param.d]))
     return np.array(X)
 
 def aligned(X):
     "Met le barycentre à 0"
-    (Nt, N, d)=X.shape
-    print(Nt, N, d)
+    (Nt, d, N)=X.shape
     J = np.eye(N) - np.ones((N,N))/N
-    Xaligned = np.array([np.matmul(J, X[i]) for i in range(Nt)])
+    Xaligned = np.array([np.matmul(X[i], J) for i in range(Nt)])
     return Xaligned
 
 def mask_t(D, param):
